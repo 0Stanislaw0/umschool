@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Room</title>
+</head>
+<body>
+<a href="{% url 'users:index' %}">go back</a>
+
+<div id="mainChat">
+    <br>
+    <p>Предмет <b>{{lesson.name }}</b> last 10 messages: </p>
+    Участники чата:
+    <ul>
+        {% for user in lesson.users.all %}
+        <li>{{ user}}</li>
+        {% endfor %}
+    </ul>
+    <br>
+    <textarea id="chat-log" cols="100" rows="20" style="text-align: left">
+        {% for message in messages|dictsort:"created_at" %}
+        {{ message.author }}: {{message.context|safe }}
+        {% endfor %}
+    </textarea><br>
+    <input id="chat-message-input" type="text" size="100"><br>
+    <input id="chat-message-submit" type="button" value="Send">
+    {{ lesson.id|json_script:"lesson_id" }}
+</div>
+<script>
+    const roomID = JSON.parse(document.getElementById('lesson_id').textContent);
+
+    const chatSocket = new WebSocket(
+        'ws://'
+        + window.location.host
+        + '/ws/chat/'
+        + roomID
+        + '/'
+    );
+
+    chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        document.querySelector('#chat-log').value += (data.user + ": " + data.message + '\n');
+    };
+
+    chatSocket.onclose = function (e) {
+        document.querySelector('#mainChat').textContent = "permission denied"
+    };
+
+    document.querySelector('#chat-message-input').focus();
+    document.querySelector('#chat-message-input').onkeyup = function (e) {
+        if (e.keyCode === 13) {  // enter, return
+            document.querySelector('#chat-message-submit').click();
+        }
+    };
+
+    document.querySelector('#chat-message-submit').onclick = function (e) {
+        const messageInputDom = document.querySelector('#chat-message-input');
+        const message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({
+            'message': message
+        }));
+        messageInputDom.value = '';
+    };
+</script>
+</body>
+</html>
